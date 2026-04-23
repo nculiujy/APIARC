@@ -1,0 +1,78 @@
+💎 APIARC: Automated Pipeline for Integrated Analysis of RNA-seq and ChIP-seq
+===========================================================================
+
+🧉 Introduction
+----------------
+**APIARC** is a modular, flexible, and fully automated workflow based on **Snakemake** designed for the comprehensive and integrated analysis of RNA-seq and ChIP-seq data. 
+
+While there are many pipelines that analyze RNA-seq or ChIP-seq individually, APIARC bridges the gap by not only processing raw data from both sequencing types but also performing deep biological integration. It identifies co-regulated genes, links Enhancer and Promoter signals, performs functional enrichment (KEGG/GO), and infers Transcription Factor (TF) - Gene regulatory networks, generating Cytoscape-ready files for network visualization.
+
+🐍 Workflow
+------------
+![Workflow Overview](Figure1.png)
+
+The APIARC workflow consists of three main parallel and sequential branches:
+
+1. **RNA-seq Pipeline**: From raw data download (SRA) $\rightarrow$ QC (FastQC/fastp) $\rightarrow$ Alignment & Quantification (Hisat2/StringTie) $\rightarrow$ Differential Expression Analysis (DESeq2).
+2. **ChIP-seq Pipeline**: From raw data download $\rightarrow$ QC (Trim Galore) $\rightarrow$ Alignment & Filtering (Bowtie2/Picard) $\rightarrow$ Peak Calling (MACS2) & Signal Track Generation (deepTools).
+3. **Integrated Analysis**:
+   - **Promoter Module**: Integrates ChIP-seq peaks at promoter regions with RNA-seq DEGs.
+   - **Enhancer Module**: Associates distal Enhancer peaks with target genes using correlation analysis.
+   - **Network Module**: Generates GO/KEGG functional enrichment networks and TF-Gene regulatory networks (exportable to Cytoscape).
+
+📂 Input and Output
+-------------------
+### Input format
+1. **Config file (`config.yaml`)**: The main configuration file to set up reference genomes, thread counts, and general pipeline switches.
+2. **Metadata (`config/RNAseq_metadata.csv` & `ChIPseq_metadata.csv`)**: Tabular data defining the sample names, their corresponding SRR IDs, and experimental groups (e.g., Treatment vs Control).
+3. **Raw Data (Optional)**: The pipeline can automatically download raw reads from NCBI SRA using the SRR IDs provided. Alternatively, users can place local `.fastq.gz` files in the raw data directories.
+
+### Output directories
+All results are structured in the `result/` directory:
+1. `RNAseq_pipline/`: Contains `1_Rawdata`, `2_Cleandata`, `3_RC_pipline` (BAM/GTF/Counts), and `4_DEseq` (Differential expression tables and plots).
+2. `ChIPseq_pipline/`: Contains `1_Rawdata`, `2_Cleandata`, `3_CC_pipline` (BAM/BigWig), and `4_peak_result` (MACS2 peaks and deepTools matrix).
+3. `Integrated/`: 
+   - `Promoter/`: Contains integrated gene lists, KEGG/GO enrichment plots, and TF-Gene network files (`*_cytoscape.csv`).
+   - `Enhancer/`: Contains true enhancer predictions, signal profile plots, and corresponding network analysis.
+
+⚙️ Installation
+----------------
+### Dependencies
+The pipeline relies on Conda for environment management. The core software dependencies include:
+- `snakemake`
+- `fastp`, `trim_galore`, `fastqc`
+- `hisat2`, `bowtie2`, `samtools`, `picard`
+- `stringtie`, `macs2`, `deeptools`
+- **Python 3**: `pandas`, `numpy`, `concurrent.futures`
+- **R 4.0+**: `DESeq2`, `ChIPseeker`, `ComplexHeatmap`, `clusterProfiler`
+
+### Clone the repository
+```bash
+git clone https://github.com/nculiujy/APIARC.git
+cd APIARC
+```
+
+### Setup Environments
+APIARC uses Conda environments defined in `workflow/envs/`. Snakemake will automatically create and use these environments when you run the pipeline with the `--use-conda` flag (if configured).
+
+Alternatively, you can manually build the core environments:
+```bash
+conda env create -f environment.yml
+conda activate APIARC
+```
+
+🚀 Usage
+---------
+Before running, ensure that your `config/config.yaml` and metadata CSV files are correctly filled with your experimental design.
+
+To run the complete integrated pipeline locally with 30 cores:
+```bash
+snakemake -c 30 --rerun-incomplete
+```
+
+To run a dry-run (to check which rules will be executed without actually running them):
+```bash
+snakemake -n
+```
+
+If you encounter network instability during data download, the pipeline has built-in retry mechanisms and will fail safely if the data cannot be acquired.
