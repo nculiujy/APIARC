@@ -1,0 +1,32 @@
+# Snakemake
+.snakemake/
+logs/
+result/
+snakemake_run.log
+snakemake.log
+
+# R and Python
+.Rhistory
+.RData
+.Ruserdata
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+config/GSE*/
+workflow/resources/anno/
+workflow/resources/Enhancer_anno/
+workflow/resources/Motif_tf_anno/
+workflow/resources/picard-2.18.2/

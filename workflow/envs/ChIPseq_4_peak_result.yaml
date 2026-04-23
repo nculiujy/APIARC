@@ -1,0 +1,2 @@
+max_parallel: 4
+threads: 8

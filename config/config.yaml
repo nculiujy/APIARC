@@ -1,0 +1,25 @@
+# Global configuration for RNAseq and ChIPseq pipelines
+
+# 统一物种选择 (homo or mm)
+species: "mm"
+
+# 实验编号 (如果需要从公共数据库下载数据，配置对应目录如 config/GSE140552)
+experiment: "GSE140552"
+
+# 模块开关 (True 开启, False 关闭)
+RNAseq_modules:
+  1_download: True
+  2_QC: True
+  3_RC: True
+  4_DEseq: True
+
+ChIPseq_modules:
+  1_download: True
+  2_QC: True
+  3_CC: True
+  4_peak_result: True
+
+Integrated_modules:
+  1_Integrated_genes: True
+  2_Enhancer_genes: True
+

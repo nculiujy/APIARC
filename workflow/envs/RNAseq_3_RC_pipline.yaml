@@ -1,0 +1,14 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - hisat2=2.2.1
+  - samtools=1.17
+  - stringtie=2.2.1
+  - picard=2.18.2
+  - python=3.10
+
+
+threads: 8
+max_parallel: 4

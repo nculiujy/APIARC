@@ -1,0 +1,10 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - trim-galore=0.6.10
+  - fastqc=0.12.1
+
+
+threads: 8
