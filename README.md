@@ -1,13 +1,13 @@
-💎 APIARC: Automated Pipeline for Integrated Analysis of RNA-seq and ChIP-seq
+APIARC: Automated Pipeline for Integrated Analysis of RNA-seq and ChIP-seq
 ===========================================================================
 
-🧉 Introduction
+Introduction
 ----------------
 **APIARC** is a modular, flexible, and fully automated workflow based on **Snakemake** designed for the comprehensive and integrated analysis of RNA-seq and ChIP-seq data. 
 
 While there are many pipelines that analyze RNA-seq or ChIP-seq individually, APIARC bridges the gap by not only processing raw data from both sequencing types but also performing deep biological integration. It identifies co-regulated genes, links Enhancer and Promoter signals, performs functional enrichment (KEGG/GO), and infers Transcription Factor (TF) - Gene regulatory networks, generating Cytoscape-ready files for network visualization.
 
-🐍 Workflow
+Workflow
 ------------
 ![Workflow Overview](Figure1.png)
 
@@ -141,3 +141,35 @@ snakemake -n
 ```
 
 If you encounter network instability during data download, the pipeline has built-in retry mechanisms and will fail safely if the data cannot be acquired.
+
+### 森林架构图
+APIARC/
+├── 📄 Snakefile                 # 整个项目的总入口，负责调用工作流中的所有 rules
+├── 📄 README.md                 # 项目说明文档与用户手册
+├── 📄 environment.yml           # Conda 环境基础依赖文件
+├── 📄 Figure1.png               # 流程图
+│
+├── 📂 config/                   # ⚙️ 核心配置中心（用户修改区域）
+│   ├── config.yaml              # 全局参数开关（物种选择、实验ID、各模块开启/关闭）
+│   ├── RNAseq_metadata.csv      # RNA-seq 样本对照与分组信息
+│   └── ChIPseq_metadata.csv     # ChIP-seq IP 与 Input 样本配对及合并信息
+│
+└── 📂 workflow/                 # 🧠 核心工作流逻辑
+    ├── 📂 rules/                # Snakemake 规则文件（定义每一步的输入/输出）
+    │   ├── RNAseq_pipline/      # RNAseq 分析流程的规则 (Download -> QC -> RC -> DESeq2)
+    │   ├── ChIPseq_pipline/     # ChIPseq 分析流程的规则 (Download -> QC -> CC -> Peak Calling)
+    │   └── Integrated/          # 联合分析规则 (分为 Promoter 模块与 Enhancer 模块)
+    │
+    ├── 📂 scripts/              # 外部执行脚本（Python, R, Perl）
+    │   ├── RNAseq_pipline/      # 如下载脚本、DESeq2 分析脚本
+    │   ├── ChIPseq_pipline/     # 如质控 Perl 脚本、格式转换脚本
+    │   └── Integrated/          # 共表达网络、KEGG/GO、TF motif 分析 R 脚本
+    │
+    ├── 📂 envs/                 # Conda 隔离环境配置文件 (.yaml)
+    │   └── *.yaml               # 为不同模块定义的专属软件环境（如 MACS2、DESeq2 独立环境）
+    │
+    └── 📂 resources/            # 静态数据与外部资源（基因组注释、Java工具等）
+        ├── anno/                # 基础基因组注释 (GTF, 染色体尺寸等，由 setup_anno_env.sh 自动生成)
+        ├── Enhancer_anno/       # 增强子特征注释数据
+        ├── Motif_tf_anno/       # TF Motif JASPAR 数据库
+        └── picard-2.18.2/       # Picard Java 可执行文件
