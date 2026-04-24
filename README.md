@@ -32,8 +32,8 @@ All results are structured in the `result/` directory:
 1. `RNAseq_pipline/`: Contains `1_Rawdata`, `2_Cleandata`, `3_RC_pipline` (BAM/GTF/Counts), and `4_DEseq` (Differential expression tables and plots).
 2. `ChIPseq_pipline/`: Contains `1_Rawdata`, `2_Cleandata`, `3_CC_pipline` (BAM/BigWig), and `4_peak_result` (MACS2 peaks and deepTools matrix).
 3. `Integrated/`: 
-   - `Promoter/`: Contains integrated gene lists, KEGG/GO enrichment plots, and TF-Gene network files (`*_cytoscape.csv`).
-   - `Enhancer/`: Contains true enhancer predictions, signal profile plots, and corresponding network analysis.
+   - **Promoter Module**: Identifies common genes between DEGs and ChIP promoter peaks, plotting expression vs. ChIP signal correlations. Performs KEGG/GO enrichment (Gene-KEGG/GO networks) and TF motif binding analysis (TF-Gene networks).
+   - **Enhancer Module**: Identifies common genes between DEGs and ChIP enhancer peaks, mapping correlations. Generates corresponding KEGG/GO enrichment networks and TF-Gene regulatory networks.
 
 ⚙️ Installation
 ----------------
