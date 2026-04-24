@@ -1,0 +1,20 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA0560.2 PIF3
+letter-probability matrix: alength= 4 w= 7 nsites= 527 E= 0
+ 0.036053  0.757116  0.178368  0.028463
+ 0.000000  1.000000  0.000000  0.000000
+ 1.000000  0.000000  0.000000  0.000000
+ 0.000000  0.776091  0.000000  0.223909
+ 0.000000  0.000000  1.000000  0.000000
+ 0.000000  0.000000  0.000000  1.000000
+ 0.000000  0.000000  1.000000  0.000000
+URL http://jaspar.genereg.net/matrix/MA0560.2

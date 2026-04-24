@@ -1,0 +1,20 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA2316.1 l(3)neo38
+letter-probability matrix: alength= 4 w= 7 nsites= 15833 E= 0
+ 0.026780  0.921619  0.016737  0.034864
+ 0.048759  0.861176  0.036696  0.053370
+ 0.055580  0.859976  0.035559  0.048885
+ 0.046359  0.868187  0.032338  0.053117
+ 0.039538  0.862629  0.033980  0.063854
+ 0.038211  0.866229  0.030001  0.065559
+ 0.022169  0.923072  0.017811  0.036948
+URL http://jaspar.genereg.net/matrix/MA2316.1

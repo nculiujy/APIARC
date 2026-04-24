@@ -1,0 +1,17 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA2385.1 estExt_gwp_gw1.C_220046
+letter-probability matrix: alength= 4 w= 4 nsites= 998 E= 0
+ 0.053106  0.125251  0.760521  0.061122
+ 0.006006  0.948949  0.000000  0.045045
+ 0.045090  0.000000  0.925852  0.029058
+ 0.016032  0.815631  0.092184  0.076152
+URL http://jaspar.genereg.net/matrix/MA2385.1

@@ -1,0 +1,20 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA2432.1 SPL15B
+letter-probability matrix: alength= 4 w= 7 nsites= 92872 E= 0
+ 0.068858  0.043878  0.033939  0.853325
+ 0.844506  0.042629  0.073876  0.038989
+ 0.834697  0.073973  0.028846  0.062484
+ 0.907862  0.030117  0.028868  0.033153
+ 0.068255  0.845917  0.040389  0.045439
+ 0.056949  0.039301  0.033304  0.870445
+ 0.884185  0.032884  0.032852  0.050080
+URL http://jaspar.genereg.net/matrix/MA2432.1

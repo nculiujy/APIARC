@@ -1,0 +1,20 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA0431.2 TDA9
+letter-probability matrix: alength= 4 w= 7 nsites= 100 E= 0
+ 0.000000  1.000000  0.000000  0.000000
+ 0.000000  1.000000  0.000000  0.000000
+ 0.000000  1.000000  0.000000  0.000000
+ 0.000000  1.000000  0.000000  0.000000
+ 0.300000  0.000000  0.360000  0.340000
+ 0.000000  1.000000  0.000000  0.000000
+ 0.435644  0.158416  0.029703  0.376238
+URL http://jaspar.genereg.net/matrix/MA0431.2

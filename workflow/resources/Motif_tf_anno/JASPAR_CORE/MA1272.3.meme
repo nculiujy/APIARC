@@ -1,0 +1,19 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA1272.3 DOF2.2
+letter-probability matrix: alength= 4 w= 6 nsites= 1086 E= 0
+ 1.000000  0.000000  0.000000  0.000000
+ 0.991713  0.000000  0.000000  0.008287
+ 1.000000  0.000000  0.000000  0.000000
+ 0.998158  0.000000  0.000000  0.001842
+ 1.000000  0.000000  0.000000  0.000000
+ 0.000000  0.000000  1.000000  0.000000
+URL http://jaspar.genereg.net/matrix/MA1272.3

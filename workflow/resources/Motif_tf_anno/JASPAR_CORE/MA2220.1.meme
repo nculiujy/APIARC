@@ -1,0 +1,21 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA2220.1 E(spl)mbeta-HLH
+letter-probability matrix: alength= 4 w= 8 nsites= 1000 E= 0
+ 0.000000  0.928571  0.000000  0.071429
+ 0.437500  0.000000  0.562500  0.000000
+ 0.000000  1.000000  0.000000  0.000000
+ 0.000000  0.000000  1.000000  0.000000
+ 0.000000  0.000000  0.000000  1.000000
+ 0.000000  0.000000  1.000000  0.000000
+ 0.062500  0.812500  0.125000  0.000000
+ 0.000000  0.800000  0.066667  0.133333
+URL http://jaspar.genereg.net/matrix/MA2220.1

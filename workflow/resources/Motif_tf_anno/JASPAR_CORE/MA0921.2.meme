@@ -1,0 +1,18 @@
+MEME version 4
+
+ALPHABET= ACGT
+
+strands: + -
+
+Background letter frequencies
+A 0.25 C 0.25 G 0.25 T 0.25
+
+
+MOTIF MA0921.2 ceh-48
+letter-probability matrix: alength= 4 w= 5 nsites= 1000 E= 0
+ 0.054000  0.358000  0.054000  0.534000
+ 0.094905  0.788212  0.054945  0.061938
+ 0.386386  0.036036  0.511512  0.066066
+ 0.931000  0.001000  0.000000  0.068000
+ 0.026000  0.000000  0.000000  0.974000
+URL http://jaspar.genereg.net/matrix/MA0921.2
