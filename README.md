@@ -63,7 +63,28 @@ conda activate APIARC
 
 🚀 Usage
 ---------
-Before running, ensure that your `config/config.yaml` and metadata CSV files are correctly filled with your experimental design.
+The `config/` directory serves as the control center of the APIARC pipeline. Before running the pipeline, users must configure the following files according to their experimental design:
+
+### 1. Main Configuration (`config/config.yaml`)
+This YAML file defines global parameters and module switches:
+- **`species`**: Define the species for reference genome mapping and annotations (e.g., `"mm"` for Mouse, `"homo"` for Human).
+- **`experiment`**: Used for project naming or data fetching (e.g., `"GSE140552"`).
+- **`RNAseq_modules` / `ChIPseq_modules` / `Integrated_modules`**: Boolean switches (`True` or `False`) to toggle specific analysis steps on or off.
+
+### 2. RNA-seq Metadata (`config/RNAseq_metadata.csv`)
+A comma-separated file describing your RNA-seq samples.
+- **`sample`**: The unique identifier or SRR ID of the sample (e.g., `SRR10485905`). If using local data, this should match the prefix of your `.fastq.gz` files.
+- **`sample_name`**: A readable biological name for the sample (e.g., `NMuMG_Veh_1`).
+- **`group`**: The experimental condition used for Differential Expression Analysis (DESeq2). Use `"T"` for Control/Vehicle and `"P"` for Treatment.
+
+### 3. ChIP-seq Metadata (`config/ChIPseq_metadata.csv`)
+A comma-separated file detailing the ChIP-seq sample pairings for Peak Calling.
+- **`IP sample`**: The SRR ID or prefix of the IP (treatment) `.fastq.gz` file.
+- **`Input`**: The SRR ID or prefix of the corresponding Input (control) `.fastq.gz` file.
+- **`IP_name`**: The target name or group label (e.g., `H3K4me1_rep1`). Replicates should be indicated by suffixes like `_rep1` and `_rep2` so the pipeline can properly merge them during integrated analysis.
+
+### Running the Pipeline
+Once the configuration is correctly set, execute the pipeline from the project root.
 
 To run the complete integrated pipeline locally with 30 cores:
 ```bash
