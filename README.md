@@ -63,25 +63,60 @@ conda activate APIARC
 
 🚀 Usage
 ---------
-The `config/` directory serves as the control center of the APIARC pipeline. Before running the pipeline, users must configure the following files according to their experimental design:
+The `config/` directory serves as the control center of the APIARC pipeline. Before running the pipeline, users must carefully configure the following three files according to their experimental design:
 
 ### 1. Main Configuration (`config/config.yaml`)
-This YAML file defines global parameters and module switches:
-- **`species`**: Define the species for reference genome mapping and annotations (e.g., `"mm"` for Mouse, `"homo"` for Human).
-- **`experiment`**: Used for project naming or data fetching (e.g., `"GSE140552"`).
-- **`RNAseq_modules` / `ChIPseq_modules` / `Integrated_modules`**: Boolean switches (`True` or `False`) to toggle specific analysis steps on or off.
+This YAML file defines global parameters and module switches. It controls the overall behavior of the pipeline.
+```yaml
+# Select species for reference genome ("mm" for Mouse, "homo" for Human)
+species: "mm"
+
+# Define project/experiment ID (used for SRA download folder naming)
+experiment: "GSE140552"
+
+# Toggle pipeline modules on/off (True/False)
+RNAseq_modules:
+  1_download: True
+  2_QC: True
+  3_RC: True
+  4_DEseq: True
+
+# Enable/Disable ChIP-seq modules
+ChIPseq_modules: ...
+```
 
 ### 2. RNA-seq Metadata (`config/RNAseq_metadata.csv`)
-A comma-separated file describing your RNA-seq samples.
-- **`sample`**: The unique identifier or SRR ID of the sample (e.g., `SRR10485905`). If using local data, this should match the prefix of your `.fastq.gz` files.
-- **`sample_name`**: A readable biological name for the sample (e.g., `NMuMG_Veh_1`).
-- **`group`**: The experimental condition used for Differential Expression Analysis (DESeq2). Use `"T"` for Control/Vehicle and `"P"` for Treatment.
+A comma-separated file describing your RNA-seq samples. This file is critical for downloading data and setting up DESeq2 comparisons.
+**Format rules:**
+- **`sample`**: The unique identifier (e.g., SRA accession like `SRR10485905`). If using local data, place your files in `result/RNAseq_pipline/1_Rawdata/{experiment}/` and ensure the filename starts with this ID (e.g., `SRR10485905.fastq.gz`).
+- **`sample_name`**: A readable biological name. **Must be unique** for every row. For biological replicates, use suffixes like `_1`, `_2` (e.g., `Control_1`, `Control_2`).
+- **`group`**: The experimental condition for Differential Expression Analysis (DESeq2). 
+  - Use `"T"` for the Control/Baseline group.
+  - Use `"P"` for the Treatment/Experimental group.
+
+*Example:*
+```csv
+sample,sample_name,group
+SRR10485905,Control_1,T
+SRR10485906,Control_2,T
+SRR10485907,Treatment_1,P
+```
 
 ### 3. ChIP-seq Metadata (`config/ChIPseq_metadata.csv`)
 A comma-separated file detailing the ChIP-seq sample pairings for Peak Calling.
-- **`IP sample`**: The SRR ID or prefix of the IP (treatment) `.fastq.gz` file.
-- **`Input`**: The SRR ID or prefix of the corresponding Input (control) `.fastq.gz` file.
-- **`IP_name`**: The target name or group label (e.g., `H3K4me1_rep1`). Replicates should be indicated by suffixes like `_rep1` and `_rep2` so the pipeline can properly merge them during integrated analysis.
+**Format rules:**
+- **`IP sample`**: The SRR ID or prefix of the IP (treatment) raw data file.
+- **`Input`**: The SRR ID or prefix of the corresponding Input (background control) raw data file.
+- **`IP_name`**: The target name or group label (e.g., `H3K4me1_rep1`). 
+  - **Important:** Replicates should be indicated by suffixes like `_rep1` and `_rep2` (e.g., `H3K27ac_rep1`). The integrated analysis modules will automatically group and merge them based on the prefix before the `_rep`.
+
+*Example:*
+```csv
+IP sample,Input,IP_name
+SRR10485892,SRR10485880,H3K4me1_rep1
+SRR10485893,SRR10485880,H3K4me1_rep2
+SRR10485886,SRR10485880,H3K27ac_rep1
+```
 
 ### Running the Pipeline
 Once the configuration is correctly set, execute the pipeline from the project root.
