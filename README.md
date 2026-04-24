@@ -61,6 +61,15 @@ conda env create -f environment.yml
 conda activate APIARC
 ```
 
+### Resource Preparation
+The `workflow/resources/` directory contains necessary external scripts and genomic annotations (Promoter, Enhancer, Motif, etc.) used for the Integrated Analysis modules.
+Because some annotation files are too large to be hosted on GitHub, we provide a setup script to automatically fetch and configure them.
+**Before running the pipeline, you must prepare the annotation environment:**
+```bash
+bash workflow/resources/anno/setup_anno_env.sh
+```
+This script will download and format the required reference annotations (like GTF, Bed files, etc.) for your target species (Human/Mouse) and place them in the correct `workflow/resources/anno` subdirectories.
+
 🚀 Usage
 ---------
 The `config/` directory serves as the control center of the APIARC pipeline. Before running the pipeline, users must carefully configure the following three files according to their experimental design:

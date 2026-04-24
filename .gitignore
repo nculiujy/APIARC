@@ -27,7 +27,8 @@ Thumbs.db
 # Project specific
 .trae/
 config/GSE*/
-workflow/resources/anno/
+workflow/resources/anno/*
+!workflow/resources/anno/setup_anno_env.sh
 workflow/resources/Enhancer_anno/
 workflow/resources/Motif_tf_anno/
 workflow/resources/picard-2.18.2/
