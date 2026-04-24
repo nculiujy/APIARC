@@ -25,6 +25,7 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
+.trae/
 config/GSE*/
 workflow/resources/anno/
 workflow/resources/Enhancer_anno/
