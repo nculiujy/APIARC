@@ -143,6 +143,7 @@ snakemake -n
 If you encounter network instability during data download, the pipeline has built-in retry mechanisms and will fail safely if the data cannot be acquired.
 
 ### Project Architecture
+```text
 APIARC/
 ├── Snakefile                 # Project entry point
 ├── README.md                 # Project description and user manual
@@ -173,3 +174,4 @@ APIARC/
         ├── Enhancer_anno/    # Enhancer feature annotation data
         ├── Motif_tf_anno/    # TF Motif JASPAR database
         └── picard-2.18.2/    # Picard Java executable files
+```
