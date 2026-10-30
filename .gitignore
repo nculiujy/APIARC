@@ -5,6 +5,11 @@ result/
 snakemake_run.log
 snakemake.log
 
+# APIARC runtime
+.apiarc-runtime/
+.venv/
+analysis-env/
+
 # R and Python
 .Rhistory
 .RData
@@ -27,5 +32,32 @@ Thumbs.db
 # Project specific
 .trae/
 config/GSE*/
+workflow/data/*/*
+!workflow/data/*/.gitkeep
 workflow/resources/anno/*
 !workflow/resources/anno/setup_anno_env.sh
+
+# Manual test helpers; the contract tests do not import them
+scripts/mock-hg19.py
+scripts/mock-hg19.sh
+scripts/smoke_ui.py
+
+# Documentation and screenshots; README.md is the only prose kept in the repo
+docs/
+Rplots.pdf
+*_test.png
+verify_*.png
+
+# Earlier release snapshots
+APIARC_1.0/
+
+# The paper figure; README embeds the PNG, the PDF is only for print
+Figure1.pdf
+
+# Downloaded motif matrices and third-party binaries; the setup scripts restore them
+workflow/resources/Motif_tf_anno/JASPAR_CORE/
+workflow/resources/picard-2.18.2/
+workflow/resources/Enhancer_anno/
+
+# Committed by mistake, it only held a single character
+/gitignore

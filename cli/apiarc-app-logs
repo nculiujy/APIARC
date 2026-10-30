@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APIARC_REPO="${APIARC_REPO:-@@REPO@@}"
+export APIARC_REPO
+source "@@LIB@@"
+source "@@RUNTIME_DIR@@/conda.sh"
+
+LINES=80
+FOLLOW=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -f|--follow) FOLLOW=1; shift ;;
+        -n)          [ $# -ge 2 ] || die "-n needs a value"; LINES="$2"; shift 2 ;;
+        -n*)         LINES="${1#-n}"; shift ;;
+        -h|--help)
+            echo "usage: apiarc-app-logs [-n LINES] [-f]"
+            echo "  server log: $APIARC_SERVER_LOG"
+            echo "  run logs:   $APIARC_REPO/logs/runs"
+            exit 0 ;;
+        *) die "unknown option '$1'" ;;
+    esac
+done
+
+runtime_logs "$LINES" "$FOLLOW"

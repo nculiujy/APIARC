@@ -1,2 +1,26 @@
-max_parallel: 4
-threads: 8
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - macs2=2.2.9.1
+  - bedtools=2.31.0
+  - samtools=1.17
+  - deeptools=3.5.1
+  # deepTools 3.5.1 registers colormaps through matplotlib.cm.register_cmap,
+  # which matplotlib removed in 3.9; without this pin bamCoverage cannot import.
+  - matplotlib-base<3.9
+  - phantompeakqualtools=1.2.2
+  - subread=2.0.6
+  - python=3.10
+  - r-base=4.3
+  - r-optparse
+  - r-dplyr
+  - bioconductor-chipseeker=1.38.0
+  - bioconductor-txdb.mmusculus.ucsc.mm10.knownGene
+  - bioconductor-org.mm.eg.db
+  - bioconductor-org.hs.eg.db
+  - bioconductor-txdb.hsapiens.ucsc.hg38.knownGene
+  # hg19 peaks must be annotated with the hg19 TxDb; GRCh37 is a supported
+  # annotation version, so its TxDb ships with the environment.
+  - bioconductor-txdb.hsapiens.ucsc.hg19.knownGene=3.2.2

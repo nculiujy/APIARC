@@ -1,0 +1,73 @@
+
+species: "mm"
+experiment: "GSE140552"
+
+RNAseq:
+  dataset: "GSE140552"
+  count_matrix: "config/fixtures/gene_count_matrix.csv"
+
+RNAseq_modules:
+  1_prepare: False
+  2_QC: False
+  3_RC: False
+  4_DEseq: True
+
+ChIPseq_modules:
+  1_prepare: True
+  2_QC: True
+  3_CC: True
+  4_peak_result: True
+  5_diffbind: True
+
+Integrated_modules:
+  0_stats: True
+  1_enrichment: True
+  2_motif: True
+  3_enhancer: True
+
+chip:
+  dataset: "GSE140552"
+  metadata: "config/fixtures/ChIPseq_metadata_two_conditions.csv"
+  peak_mode:
+    default: narrow
+    H3K27ac: broad
+  broad_cutoff: 0.1
+  keep_duplicates: false
+  mapq: 30
+  blacklist: auto
+  reference_condition: Veh
+  diff:
+    methods: [count, presence, stat]
+    fdr: 0.05
+    lfc: 1.0
+    min_replicates: 2
+    label_permutations: 1
+    max_false_positive: 5
+    idr: false
+  coverage_norm: BPM
+
+integrated:
+  mode: auto
+  universe: expressed
+  promoter_window: 2000
+  enhancer_max_distance: 1000000
+  enhancer_distance_bins: [0, 10000, 50000, 100000, 500000, 1000000]
+  enhancer_random_per_region: 2
+  min_expression_baseMean: 10
+  enrichment_min_gene_set: 10
+  motif_background: static
+  motif_kmer: 2
+  motif_min_regions: 50
+
+stats:
+  permutations: 200
+  seed: 20261023
+  alpha: 0.05
+  bootstrap: 200
+
+qc:
+  fail_on_threshold: false
+  thresholds:
+    frip: 0.05
+    replicate_correlation: 0.85
+    min_mapped_reads: 10000000

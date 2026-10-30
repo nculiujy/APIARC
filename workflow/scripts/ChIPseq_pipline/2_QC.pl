@@ -28,25 +28,16 @@ sub log_message {
 
 log_message("ChIP-seq 2 QC: Trim Galore ");
 
-my @samples = glob("$inputdir/*/*_1*.fq.gz");
-if (!@samples) {
-    @samples = glob("$inputdir/*_1*.fq.gz");
+my @samples = ();
+for my $suffix ("fq.gz", "fastq.gz", "fq", "fastq") {
+    @samples = glob("$inputdir/*/*_1*.$suffix");
+    if (!@samples) {
+        @samples = glob("$inputdir/*_1*.$suffix");
+    }
+    last if @samples;
 }
 
-if (!@samples) {
-    @samples = glob("$inputdir/*/*_1*.fastq");
-    if (!@samples) {
-        @samples = glob("$inputdir/*_1*.fastq");
-    }
-}
-if (!@samples) {
-    @samples = glob("$inputdir/*/*_1*.fq");
-    if (!@samples) {
-        @samples = glob("$inputdir/*_1*.fq");
-    }
-}
-
-if ($inputdir) {
+if ($inputdir && !@samples) {
     push @samples, glob("$inputdir/*.fastq.gz");
     push @samples, glob("$inputdir/*.fastq");
     push @samples, glob("$inputdir/*.fq.gz");

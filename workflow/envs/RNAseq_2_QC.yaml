@@ -4,7 +4,4 @@ channels:
   - defaults
 dependencies:
   - fastp=0.23.4
-
-
-threads: 8
-max_parallel: 4
+  - python=3.10

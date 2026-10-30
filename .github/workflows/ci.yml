@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  PYTHONUNBUFFERED: "1"
+  SNAKEMAKE_VERSION: "7.32.4"
+
+jobs:
+  contracts:
+    name: Contracts and dry runs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install the driver environment
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            "snakemake-minimal==${SNAKEMAKE_VERSION}" pyyaml pandas
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Replace reference data with placeholders
+        run: python workflow/scripts/common/stub_resources.py
+
+      - name: Design validation accepts the tracked metadata
+        run: python workflow/scripts/common/validate_config.py
+
+      - name: Descriptive graph closes and never reaches module 5
+        run: |
+          snakemake -n --cores 1 > /tmp/descriptive.plan 2>&1
+          cat /tmp/descriptive.plan | tail -5
+          if grep -qE '^diffbind_' /tmp/descriptive.plan; then
+            echo "::error::descriptive mode scheduled differential rules"
+            exit 1
+          fi
+          grep -q 'total' /tmp/descriptive.plan
+
+      - name: Differential graph closes and reaches module 5
+        run: |
+          snakemake -n --cores 1 --configfile config/test_config.yaml > /tmp/differential.plan 2>&1
+          cat /tmp/differential.plan | tail -5
+          for rule in diffbind_consensus diffbind_counts diffbind_count_model \
+                      diffbind_presence diffbind_stat_shift diffbind_merge \
+                      diffbind_negative_control; do
+            if ! grep -qE "^${rule}\b" /tmp/differential.plan; then
+              echo "::error::${rule} is missing from the differential graph"
+              exit 1
+            fi
+          done
+
+      - name: An unknown species is refused instead of guessed
+        run: |
+          if snakemake -n --cores 1 --config species=xx > /tmp/species.log 2>&1; then
+            echo "::error::the pipeline accepted an unregistered species"
+            exit 1
+          fi
+          grep -q 'no .* registered for species' /tmp/species.log
+
+      - name: A broken design is refused, not written as a passing report
+        run: |
+          printf 'sample,mark,condition,replicate,input_id\nA,H3K27ac,Veh,1,IN\nB,H3K27ac,Veh,1,IN\n' > /tmp/dup.csv
+          if python workflow/scripts/common/validate_config.py \
+               --chip-metadata /tmp/dup.csv --out /tmp/report.tsv; then
+            echo "::error::duplicate replicates were accepted"
+            exit 1
+          fi
+          grep -q 'error' /tmp/report.tsv
+
+      - name: Acceptance checks fail closed
+        run: |
+          if python workflow/scripts/common/check_acceptance.py \
+               --result /tmp/empty-result --report /tmp/acceptance.tsv; then
+            echo "::error::acceptance checks passed without results"
+            exit 1
+          fi
+
+  docker:
+    name: Container build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build the image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: apiarc:ci
+
+      - name: The image runs a dry run
+        run: docker run --rm apiarc:ci snakemake -n --cores 1

@@ -5,6 +5,4 @@ channels:
 dependencies:
   - trim-galore=0.6.10
   - fastqc=0.12.1
-
-
-threads: 8
+  - python=3.10

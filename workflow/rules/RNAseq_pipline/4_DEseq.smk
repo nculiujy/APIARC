@@ -1,75 +1,92 @@
-import yaml
-import os
-import json
+
+DEG_RESULT = f"{RNA_ROOT}/4_deseq/DEG_result.csv"
+
+COUNT_MATRIX = config.get("RNAseq", {}).get(
+    "count_matrix", f"{RNA_ROOT}/3_align_quant/gene_count_matrix.csv"
+)
 
 
-import pandas as pd
-def get_deseq_config_json():
+def read_rna_groups() -> dict[str, str]:
+    """sample -> group, read at parse time so the shell knows the contrasts.
 
-    meta = pd.read_csv("config/RNAseq_metadata.csv")
-    deseq_config = dict(zip(meta['sample_name'], meta['group']))
-    return json.dumps(deseq_config).replace('"', '\\"')
+    Keyed by the run ID: the count matrix columns carry the same ID, and a
+    sample_name is shared by the replicates of one group.
+    """
+    import csv
+
+    try:
+        with open(RNA_METADATA, newline="") as handle:
+            rows = list(csv.DictReader(handle))
+    except OSError:
+        return {}
+    picked = {}
+    for row in rows:
+        name = (row.get("sample") or "").strip() or (row.get("sample_name") or "").strip()
+        if name:
+            picked[name] = (row.get("group") or "").strip()
+    return picked
 
 
-def get_bed_file():
-    species = config["species"]
-    if species == "homo":
+def rna_contrasts() -> list[tuple[str, str]]:
+    """(treatment, reference) pairs, mirroring the rule in 4_1_RNAseq_DEseq.R."""
+    groups = sorted({group for group in read_rna_groups().values() if group})
+    if not groups:
+        return []
+    if "control" in groups:
+        reference = "control"
+    elif len(groups) == 2:
+        reference = groups[0]
+    else:
+        return []
+    return [(treat, reference) for treat in groups if treat != reference]
 
-        return "workflow/resources/anno/RNAseq_anno/GRCh38/gencode.v44.annotation.bed"
-    elif species == "mm":
-        return "workflow/resources/anno/RNAseq_anno/GRCm38/gencode.vM25.annotation.bed"
-    return ""
+
+RNA_GROUPS_ARG = ",".join(f"{name}={group}" for name, group in read_rna_groups().items())
+RNA_CONTRASTS_ARG = ",".join(f"{treat}={ref}" for treat, ref in rna_contrasts())
+
 
 rule rnaseq_4_deseq:
     input:
-        gene_matrix="result/RNAseq_pipline/3_RC_pipline/gene_count_matrix.csv",
-        align_log="logs/RNAseq_pipline/3_RC_pipline.log"
+        gene_matrix=COUNT_MATRIX,
+        metadata=RNA_METADATA,
+        gene_bed=gene_bed(ASSEMBLY)
     output:
-        out_dir=directory("result/RNAseq_pipline/4_DEseq"),
-        deg_result="result/RNAseq_pipline/4_DEseq/DEG_result.csv",
-        table_dir=directory("result/RNAseq_pipline/4_DEseq/tables"),
-        plot_dir=directory("result/RNAseq_pipline/4_DEseq/plots"),
-        deseq_flag="result/RNAseq_pipline/4_DEseq/DEseq_finished.txt"
+        deg_result=DEG_RESULT,
+        deseq_flag=f"{RNA_ROOT}/4_deseq/finished.txt"
     params:
+        out_dir=f"{RNA_ROOT}/4_deseq",
+        table_dir=f"{RNA_ROOT}/4_deseq/tables",
+        plot_dir=f"{RNA_ROOT}/4_deseq/plots",
         deseq_script="workflow/scripts/RNAseq_pipline/4_1_RNAseq_DEseq.R",
         plot_script="workflow/scripts/RNAseq_pipline/4_2_DEseq_result_plot_pipline.R",
-        config_json=get_deseq_config_json(),
-        gtf_file=get_gtf_file(), # using the same get_gtf_file from 3_RC_pipline.smk context
-        bed_file=get_bed_file()
+        groups=RNA_GROUPS_ARG,
+        contrasts=RNA_CONTRASTS_ARG
+    threads: 2
     log:
-        "logs/RNAseq_pipline/4_DEseq.log"
+        "logs/RNAseq/4_DEseq.log"
+    conda:
+        "../../envs/RNAseq_4_DEseq.yaml"
     shell:
         """
-        mkdir -p {output.out_dir}
-        
+        mkdir -p {params.out_dir}
 
-        if [ ! -f {params.bed_file} ]; then
-
-            awk '$3 == "gene" {{
-                gene_id=""; gene_name="";
-                for(i=9; i<=NF; i++) {{
-                    if($i=="gene_id") gene_id=$(i+1);
-                    if($i=="gene_name") gene_name=$(i+1);
-                }}
-                gsub(/"|;/, "", gene_id);
-                gsub(/"|;/, "", gene_name);
-                print $1"\\t"$4"\\t"$5"\\t"gene_id"\\t0\\t"$7"\\t"gene_name
-            }}' {params.gtf_file} > {params.bed_file}
-        fi
-        
-        # Step 1: Run DESeq2
         Rscript {params.deseq_script} \\
             --input {input.gene_matrix} \\
-            --config "{params.config_json}" \\
+            --metadata {input.metadata} \\
             --output {output.deg_result} > {log} 2>&1
-            
-        # Step 2: Plot results
-        Rscript {params.plot_script} \\
-            --log {input.align_log} \\
-            --deg {output.deg_result} \\
-            --outdir_table {output.table_dir} \\
-            --outdir_plot {output.plot_dir} \\
-            --bed {params.bed_file} >> {log} 2>&1
-            
+
+        # One plot set per contrast: the tables and figures of two treatments
+        # describe different biological questions and must not overwrite.
+        for pair in $(echo "{params.contrasts}" | tr ',' ' '); do
+            treat=${{pair%%=*}}
+            ref=${{pair##*=}}
+            Rscript {params.plot_script} \\
+                --deg {params.out_dir}/DEG_result_${{treat}}_vs_${{ref}}.csv \\
+                --groups "{params.groups}" \\
+                --outdir_table {params.table_dir}/${{treat}}_vs_${{ref}} \\
+                --outdir_plot {params.plot_dir}/${{treat}}_vs_${{ref}} \\
+                --bed {input.gene_bed} >> {log} 2>&1
+        done
+
         touch {output.deseq_flag}
         """

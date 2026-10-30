@@ -5,6 +5,3 @@ channels:
 dependencies:
   - sra-tools=3.0.3
   - pigz=2.8
-
-
-threads: 8

@@ -1,0 +1,6 @@
+APP_NAME = "APIARC"
+APP_VERSION = "2.0.0"
+
+APP_FULL_NAME = f"{APP_NAME}_v{APP_VERSION}"
+
+__version__ = APP_VERSION

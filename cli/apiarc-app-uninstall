@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APIARC_REPO="${APIARC_REPO:-@@REPO@@}"
+export APIARC_REPO
+source "@@LIB@@"
+source "@@RUNTIME_DIR@@/conda.sh"
+
+if app_running; then
+    runtime_stop
+fi
+
+exec "$APIARC_REPO/scripts/uninstall.sh" "$@"

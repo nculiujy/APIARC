@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APIARC_REPO="${APIARC_REPO:-@@REPO@@}"
+export APIARC_REPO
+source "@@LIB@@"
+
+PORT="${APIARC_PORT:-8501}"
+BIND="${APIARC_BIND:-0.0.0.0}"
+
+usage() {
+    cat <<EOF
+APIARC v$(apiarc_version)
+
+usage: apiarc-app [options]
+
+  --port N        listen on port N (default 8501, auto-increments when busy)
+  --private       bind 127.0.0.1 only
+  --public        bind 0.0.0.0 (default)
+  --no-browser    do not open a browser
+  -v, --version   print version
+  -h, --help      print this help
+
+environment:
+  APIARC_PORT, APIARC_BIND, APIARC_RUNTIME_DIR, APIARC_ANALYSIS_ENV
+EOF
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --port)      [ $# -ge 2 ] || die "--port needs a value"; PORT="$2"; shift 2 ;;
+        --port=*)    PORT="${1#*=}"; shift ;;
+        --private|--local) BIND="127.0.0.1"; shift ;;
+        --public)    BIND="0.0.0.0"; shift ;;
+        --no-browser) shift ;;
+        -v|--version) echo "$(apiarc_version)"; exit 0 ;;
+        -h|--help)   usage; exit 0 ;;
+        *)           die "unknown option '$1'; run apiarc-app -h" ;;
+    esac
+done
+
+source "@@RUNTIME_DIR@@/conda.sh"
+
+if app_running; then
+    RUNNING_PORT=$(cat "$(port_file)" 2>/dev/null || echo "$PORT")
+    warn "APIARC is already running on port $RUNNING_PORT (pid $(app_pid))"
+    warn "open http://127.0.0.1:$RUNNING_PORT, or stop it with apiarc-app-stop"
+    exit 0
+fi
+
+FREE_PORT=$(find_free_port "$PORT")
+if [ "$FREE_PORT" != "$PORT" ]; then
+    warn "port $PORT is busy, using $FREE_PORT"
+    PORT="$FREE_PORT"
+fi
+
+runtime_run "$PORT" "$BIND"

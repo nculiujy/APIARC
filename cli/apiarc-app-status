@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APIARC_REPO="${APIARC_REPO:-@@REPO@@}"
+export APIARC_REPO
+source "@@LIB@@"
+source "@@RUNTIME_DIR@@/conda.sh"
+
+runtime_status

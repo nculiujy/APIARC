@@ -32,7 +32,6 @@ def run_hisat2(sample_id, fq1, fq2, args, rel_dir):
 
     sam_file = os.path.join(hisat2_dir, "accepted_hits.sam")
     
-    # HISAT2 command
     hisat2_cmd = [
         "hisat2", "-x", index_dir, "-p", str(args.threads), "--dta",
         "--rg-id", sample_id, "--rg", f"SM:{sample_id}"

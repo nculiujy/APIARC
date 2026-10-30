@@ -1,12 +1,14 @@
 #!/usr/bin/env Rscript
 
-
-if(!require("optparse")) install.packages("optparse", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if(!require("ggplot2")) install.packages("ggplot2", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if(!require("dplyr")) install.packages("dplyr", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if(!require("RColorBrewer")) install.packages("RColorBrewer", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if(!require("pheatmap")) install.packages("pheatmap", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if(!require("ggrepel")) install.packages("ggrepel", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
+.required <- c("optparse", "ggplot2", "dplyr", "RColorBrewer", "pheatmap", "ggrepel")
+.missing <- .required[!vapply(.required, requireNamespace, logical(1), quietly = TRUE)]
+if (length(.missing) > 0) {
+  stop(
+    "missing R package(s): ", paste(.missing, collapse = ", "),
+    "\nThey must come from the pinned conda environment; run snakemake with --use-conda.",
+    call. = FALSE
+  )
+}
 
 library(optparse)
 library(ggplot2)
@@ -16,19 +18,21 @@ library(pheatmap)
 library(ggrepel)
 
 
-# bed_path <- "/home/yxiaobo/RCProj/tfanno/gencode.vM25.mRNA.annotation.bed"
 
 option_list <- list(
-  make_option(c("--log"), type="character", help="hisat2 logfile"),
+  make_option(c("--log"), type="character",
+              help="optional HISAT2 log; only used for the alignment-composition panel"),
   make_option(c("--deg"), type="character", help="analysiscsvfile"),
+  make_option(c("--groups"), type="character", default=NULL,
+              help="optional sample=group pairs, comma separated; colours the PCA"),
   make_option(c("--outdir_table"), type="character", help=""),
   make_option(c("--outdir_plot"), type="character", help=""),
   make_option(c("--bed"), type="character", help="bedfile")
 )
 opt <- parse_args(OptionParser(option_list=option_list))
 
-if(is.null(opt$log) | is.null(opt$deg) | is.null(opt$outdir_table) | is.null(opt$outdir_plot) | is.null(opt$bed)){
-  stop("--log --deg --outdir_table --outdir_plot --bed！")
+if(is.null(opt$deg) | is.null(opt$outdir_table) | is.null(opt$outdir_plot) | is.null(opt$bed)){
+  stop("--deg --outdir_table --outdir_plot --bed are required")
 }
 
 if(!dir.exists(opt$outdir_table)) dir.create(opt$outdir_table, recursive=TRUE)
@@ -37,7 +41,7 @@ if(!dir.exists(opt$outdir_plot)) dir.create(opt$outdir_plot, recursive=TRUE)
 bed_path <- opt$bed
 
 
-log_lines <- readLines(opt$log)
+log_lines <- if (!is.null(opt$log) && file.exists(opt$log)) readLines(opt$log) else character()
 
 sample_idx <- grep("^={5,}\\s*\\S+\\s*={5,}$", log_lines)
 sample_names <- sub("^=+\\s*(\\S+)\\s*=+$", "\\1", log_lines[sample_idx])
@@ -78,7 +82,6 @@ for (i in seq_along(sample_idx)) {
     unmapped_pct <- 0
   }
   
-  # Ensure variables are of length 1, if they are empty set them to 0
   if(length(unique_pct) == 0 || is.na(unique_pct)) unique_pct <- 0
   if(length(multi_pct) == 0 || is.na(multi_pct)) multi_pct <- 0
   if(length(unmapped_pct) == 0 || is.na(unmapped_pct)) unmapped_pct <- 0
@@ -131,15 +134,12 @@ deg.data <- tryCatch({
 })
 
 if (nrow(deg.data) == 0) {
-  cat("[WARNING] DEG result is empty! Exiting gracefully.\n")
-  file.create(file.path(opt$outdir_table, "UP_genes_name.csv"))
-  file.create(file.path(opt$outdir_table, "DOWN_genes_name.csv"))
-  file.create(file.path(opt$outdir_table, "UP_gene_names.bed"))
-  file.create(file.path(opt$outdir_table, "DOWN_gene_names.bed"))
-  quit(status = 0)
+  stop("DEG result is empty: ", opt$deg,
+       "\nDESeq2 produced no rows; the contrast is undefined.", call. = FALSE)
 }
-bed <- read.table(bed_path, sep="\t", header=FALSE, stringsAsFactors=FALSE)
-colnames(bed) <- c('chr', 'start', 'end', 'gene_id', 'score', 'strand')
+bed <- read.table(bed_path, sep="\t", header=FALSE, stringsAsFactors=FALSE, fill=TRUE)
+bed_names <- c("chr", "start", "end", "gene_id", "score", "strand", "symbol")
+colnames(bed) <- bed_names[seq_len(ncol(bed))]
 
 log2FC_cutoff <- 1
 padj_cutoff <- 0.05
@@ -159,8 +159,13 @@ write.table(matched_down, file=file.path(opt$outdir_table, "DOWN_gene_names.bed"
 
 
 deg.data_nodup <- deg.data[!duplicated(deg.data$SYMBOL), ]
-expr_mat <- deg.data_nodup[, 8:ncol(deg.data_nodup)]
-expr_mat <- expr_mat[, 1:4]
+reserved <- c("SYMBOL", "gene_id", "baseMean", "log2FoldChange", "lfcSE",
+              "stat", "pvalue", "padj")
+count_columns <- setdiff(colnames(deg.data_nodup), reserved)
+if (length(count_columns) == 0) {
+  stop("no normalised count columns found in ", opt$deg, call. = FALSE)
+}
+expr_mat <- as.matrix(deg.data_nodup[, count_columns, drop = FALSE])
 rownames(expr_mat) <- deg.data_nodup$SYMBOL
 n_sample <- ncol(expr_mat)
 mycol <- brewer.pal(min(n_sample, 12), "Set3")
@@ -186,9 +191,29 @@ pheatmap(sample_dist_matrix, main = "Sample distance heatmap")
 dev.off()
 
 
-pca <- prcomp(t(log2(expr_mat + 1)), scale. = TRUE)
+# A gene with the same count in every sample has zero variance and makes
+# prcomp's scaling abort; PCA only needs the genes that vary.
+log_mat <- log2(expr_mat + 1)
+variable <- apply(log_mat, 1, var) > 0
+if (sum(variable) < 2) {
+  stop("no genes with variance across samples in ", opt$deg, call. = FALSE)
+}
+pca <- prcomp(t(log_mat[variable, , drop = FALSE]), scale. = TRUE)
 pca_df <- data.frame(pca$x)
-pca_df$group <- rep(c("Veh", "DOX"), each = 2)
+sample_groups <- NULL
+if (!is.null(opt$groups) && nzchar(opt$groups)) {
+  pairs <- strsplit(opt$groups, ",")[[1]]
+  kv <- do.call(rbind, strsplit(pairs, "=", fixed = TRUE))
+  sample_groups <- setNames(kv[, 2], kv[, 1])
+}
+pca_df$group <- if (is.null(sample_groups)) {
+  "all"
+} else {
+  values <- unname(sample_groups[rownames(pca_df)])
+  # Levels are per contrast here, so a sample missing from the metadata shows
+  # up as unassigned instead of silently becoming background.
+  ifelse(is.na(values), "unassigned", values)
+}
 pca_df$sample <- rownames(pca_df)
 pdf(file.path(opt$outdir_plot, "sample_PCA.pdf"), width=10, height=8)
 ggplot(pca_df, aes(PC1, PC2, color = group, label = sample)) +
@@ -204,32 +229,65 @@ dev.off()
 
 
 deg.data <- deg.data %>% filter(pvalue >= 1e-30)
-need_DEG <- deg.data[, c("log2FoldChange", "padj")]
-colnames(need_DEG) <- c('log2FoldChange', 'padj')
-need_DEG$significance <- as.factor(ifelse(
-  need_DEG$padj < padj_cutoff & abs(need_DEG$log2FoldChange) > log2FC_cutoff,
-  ifelse(need_DEG$log2FoldChange > log2FC_cutoff, 'UP', 'DOWN'),
-  'NOT'
-))
-title <- paste0(' Up :  ', nrow(need_DEG[need_DEG$significance == 'UP',]),
-                '\n Down : ', nrow(need_DEG[need_DEG$significance == 'DOWN',]))
-g <- ggplot(data = need_DEG, 
-            aes(x = log2FoldChange, y = -log10(padj), color = significance)) +
-  geom_point(alpha = 0.4, size = 1) +
-  theme_classic() +
-  xlab("log2 ( FoldChange )") +
-  ylab("-log10 ( P.adjust )") +
-  ggtitle(title) +
-  scale_colour_manual(values = c('blue', 'grey', 'red')) +
-  geom_vline(xintercept = c(-1, 1), lty = 4, col = "grey", lwd = 0.8) +
-  geom_hline(yintercept = -log10(padj_cutoff), lty = 4, col = "grey", lwd = 0.8) +
-  theme(plot.title = element_text(hjust = 0.5), 
-        plot.margin = unit(c(2, 2, 2, 2), 'lines'),
-        legend.title = element_blank(),
-        legend.position = "right")
-ggsave(g, filename = file.path(opt$outdir_plot, "mRNA_volcano.pdf"), width = 8, height = 7.5)
+need_DEG <- deg.data %>%
+  transmute(
+    log2FoldChange = log2FoldChange,
+    padj = padj,
+    symbol = if ("SYMBOL" %in% names(deg.data)) as.character(SYMBOL) else as.character(gene_id)
+  )
+need_DEG$significance <- factor(
+  ifelse(need_DEG$padj < padj_cutoff & abs(need_DEG$log2FoldChange) > log2FC_cutoff,
+         ifelse(need_DEG$log2FoldChange > 0, 'UP', 'DOWN'), 'NOT'),
+  levels = c('UP', 'DOWN', 'NOT')
+)
+
+# The contrast name is the last component of the plot directory
+# (.../plots/treatA_vs_control); the title used to carry only the counts.
+contrast_label <- basename(opt$outdir_plot)
+n_up <- sum(need_DEG$significance == 'UP')
+n_down <- sum(need_DEG$significance == 'DOWN')
+
+# Label the most significant changed genes, ties broken by fold change.
+sig <- need_DEG %>% filter(significance != 'NOT')
+top_labels <- sig %>% arrange(padj, -abs(log2FoldChange)) %>% slice_head(n = 10)
+
+# A handful of low-count outliers reach |log2FC| ~ 20 and squash the real
+# signal into the centre; clip to a symmetric window that still holds every
+# significant gene so the labelled points stay on the page.
+x_edge <- if (nrow(sig) > 0) max(abs(sig$log2FoldChange)) else 2
+x_lim <- min(max(x_edge, log2FC_cutoff + 1), 8)
+
+ggplot(need_DEG, aes(log2FoldChange, -log10(padj))) +
+  geom_point(aes(color = significance), alpha = 0.6, size = 1.4) +
+  scale_colour_manual(values = c(UP = '#C0392B', DOWN = '#2471A3', NOT = 'grey75'),
+                      guide = 'none') +
+  geom_vline(xintercept = c(-log2FC_cutoff, log2FC_cutoff), linetype = 2,
+             color = 'grey45', linewidth = 0.5) +
+  geom_hline(yintercept = -log10(padj_cutoff), linetype = 2,
+             color = 'grey45', linewidth = 0.5) +
+  geom_text_repel(
+    data = top_labels, aes(label = symbol),
+    size = 3.2, max.overlaps = 20, box.padding = 0.4, min.segment.length = 0,
+    segment.color = 'grey55', segment.size = 0.3
+  ) +
+  coord_cartesian(xlim = c(-x_lim, x_lim), clip = 'off') +
+  labs(
+    title = contrast_label,
+    subtitle = sprintf('%d up / %d down  (|log2FC| > %g, padj < %g)',
+                       n_up, n_down, log2FC_cutoff, padj_cutoff),
+    x = expression(log[2]~"fold change"),
+    y = expression(-log[10]~"adjusted p-value")
+  ) +
+  theme_classic(base_size = 13) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = 'bold'),
+    plot.subtitle = element_text(hjust = 0.5, color = 'grey30'),
+    axis.title = element_text(face = 'bold'),
+    panel.border = element_rect(color = 'black', fill = NA, linewidth = 0.8),
+    axis.line = element_blank()
+  )
+ggsave(file.path(opt$outdir_plot, "mRNA_volcano.pdf"), width = 7, height = 6.5)
 
 cat("[INFO] analysis，", opt$outdir_table, ", plots output to", opt$outdir_plot, "\n")
 
 
-# Rscript DEseq_result_plot_pipline.R --log /home/yxiaobo/RCProj/RNAseq/database/TF-binding/GSE85632/hisat2_result.log --deg /home/yxiaobo/RCProj/RNAseq/database/TF-binding/GSE85632/mRNA/DEG_result.csv   --outdir_table /home/yxiaobo/RCProj/RNAseq/database/TF-binding/GSE85632/mRNA --outdir_plot /home/yxiaobo/RCProj/picture/RNAseq/DOX

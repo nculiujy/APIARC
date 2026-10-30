@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APIARC_REPO="${APIARC_REPO:-@@REPO@@}"
+export APIARC_REPO
+source "@@LIB@@"
+source "@@RUNTIME_DIR@@/conda.sh"
+
+SCOPE="all"
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        launcher|analysis|all) SCOPE="$1"; shift ;;
+        -h|--help)
+            echo "usage: apiarc-app-update [launcher|analysis|all]"
+            exit 0 ;;
+        *) die "unknown argument '$1'" ;;
+    esac
+done
+
+runtime_update "$SCOPE"

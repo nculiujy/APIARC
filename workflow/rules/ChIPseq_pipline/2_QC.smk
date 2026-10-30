@@ -1,21 +1,24 @@
-import yaml
-
-with open("workflow/envs/ChIPseq_2_QC.yaml") as f:
-    env_cfg_chipseq_2 = yaml.safe_load(f)
-
 rule chipseq_2_qc:
     input:
-        input_dir="result/ChIPseq_pipline/1_Rawdata"
+        raw_flag=f"{CHIP_ROOT}/1_rawdata/finished.txt"
     output:
-        out_dir=directory("result/ChIPseq_pipline/2_Cleandata")
+        qc_flag=f"{CHIP_ROOT}/2_cleandata/finished.txt"
     params:
+        input_dir=f"{CHIP_ROOT}/1_rawdata",
+        out_dir=f"{CHIP_ROOT}/2_cleandata",
         script="workflow/scripts/ChIPseq_pipline/2_QC.pl"
-    threads: env_cfg_chipseq_2.get("threads", 8)
+    threads: config.get("threads", 8)
     conda:
         "../../envs/ChIPseq_2_QC.yaml"
     log:
-        "logs/ChIPseq_pipline/2_QC.log"
+        "logs/ChIPseq/2_QC.log"
     shell:
         """
-        perl {params.script} -i {input.input_dir} -o {output.out_dir} --threads {threads} > {log} 2>&1
+        mkdir -p {params.out_dir}
+        perl {params.script} -i {params.input_dir} -o {params.out_dir} --threads {threads} > {log} 2>&1
+        if [ -z "$(find {params.out_dir} -name '*.fq.gz' -o -name '*.fastq.gz' | head -n 1)" ]; then
+            echo "[ERROR] QC produced no clean reads" | tee -a {log}
+            exit 1
+        fi
+        touch {output.qc_flag}
         """

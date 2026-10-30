@@ -1,0 +1,17 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base=4.3
+  - r-optparse
+  - r-dplyr
+  - r-tidyr
+  - bioconductor-deseq2=1.42.0
+  - bioconductor-diffbind=3.12.0
+  - bedtools=2.31.0
+  - subread=2.0.6
+  - python=3.10
+  # 5_4_presence.py (fisher_exact) and 5_5_stat_shift.py (ttest_ind) run here.
+  - numpy
+  - scipy

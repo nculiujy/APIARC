@@ -1,23 +1,25 @@
-import yaml
-
-with open("workflow/envs/RNAseq_2_QC.yaml") as f:
-    env_cfg_rnaseq_2 = yaml.safe_load(f)
-
 rule rnaseq_2_qc:
     input:
-        finished_flag="result/RNAseq_pipline/1_Rawdata/finished.txt"
+        raw_flag=f"{RNA_ROOT}/1_rawdata/finished.txt"
     output:
-        out_dir=directory("result/RNAseq_pipline/2_Cleandata")
+        qc_flag=f"{RNA_ROOT}/2_cleandata/finished.txt"
     params:
-        input_dir="result/RNAseq_pipline/1_Rawdata",
+        input_dir=f"{RNA_ROOT}/1_rawdata",
+        out_dir=f"{RNA_ROOT}/2_cleandata",
         script="workflow/scripts/RNAseq_pipline/2_QC_fqfile.pl",
-        max_parallel=env_cfg_rnaseq_2.get("max_parallel", 4)
-    threads: env_cfg_rnaseq_2.get("threads", 8)
+        max_parallel=config.get("max_parallel", 4)
+    threads: config.get("threads", 8)
     conda:
         "../../envs/RNAseq_2_QC.yaml"
     log:
-        "logs/RNAseq_pipline/2_QC.log"
+        "logs/RNAseq/2_QC.log"
     shell:
         """
-        perl {params.script} -i {params.input_dir} -o {output.out_dir} --threads {threads} --maxparallel {params.max_parallel} > {log} 2>&1
+        mkdir -p {params.out_dir}
+        perl {params.script} -i {params.input_dir} -o {params.out_dir} --threads {threads} --maxparallel {params.max_parallel} > {log} 2>&1
+        if [ -z "$(find {params.out_dir} -name '*.clean.fastq*' -o -name '*.clean.fq*' | head -n 1)" ]; then
+            echo "[ERROR] QC produced no clean reads" | tee -a {log}
+            exit 1
+        fi
+        touch {output.qc_flag}
         """

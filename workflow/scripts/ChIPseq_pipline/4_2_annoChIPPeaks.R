@@ -1,32 +1,43 @@
 #!/usr/bin/env Rscript
 
+required_packages <- c(
+  "optparse", "yaml", "ChIPseeker", "ggplot2", "GenomicFeatures",
+  "GenomicRanges", "rtracklayer", "RColorBrewer"
+)
+missing_packages <- required_packages[!vapply(
+  required_packages,
+  function(pkg) requireNamespace(pkg, quietly = TRUE),
+  logical(1)
+)]
+if (length(missing_packages) > 0) {
+  stop(
+    "missing R package(s): ", paste(missing_packages, collapse = ", "),
+    ". Install them with the pinned environment: ",
+    "conda env create -f workflow/envs/ChIPseq_4_peak_result.yaml"
+  )
+}
 
-if (!require("optparse")) install.packages("optparse", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if (!requireNamespace("BiocManager", quietly = TRUE)) 
-  install.packages("BiocManager", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if (!require("yaml")) install.packages("yaml", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if (!require("RColorBrewer")) install.packages("RColorBrewer", repos="https://mirrors.tuna.tsinghua.edu.cn/CRAN/")
-if (!require("ChIPseeker")) BiocManager::install("ChIPseeker")
-if (!require("rtracklayer")) BiocManager::install("rtracklayer")
-
-library(optparse)
-library(yaml)
-library(ChIPseeker)
-library(ggplot2)
-library(GenomicFeatures)
-library(GenomicRanges)
-library(rtracklayer)
-library(graphics)
-library(RColorBrewer)
-
-rm(list = ls())
+suppressPackageStartupMessages({
+  library(optparse)
+  library(yaml)
+  library(ChIPseeker)
+  library(ggplot2)
+  library(GenomicFeatures)
+  library(GenomicRanges)
+  library(rtracklayer)
+  library(graphics)
+  library(RColorBrewer)
+})
 
 
 option_list <- list(
   make_option(c("-p", "--peakfile"), type = "character", help = "Path to the input Peak file (.narrowPeak or .bed)"),
   make_option(c("-o", "--output"), type = "character", help = "Path to the output directory", default = NULL),
   make_option(c("-n", "--name"), type = "character", help = "Prefix name for output files", default = "PeakAnno"),
-  make_option(c("-c", "--config"), type = "character", help = "Path to the config.yaml file", default = "config/config.yaml")
+  make_option(c("-c", "--config"), type = "character", help = "Path to the config.yaml file", default = "config/config.yaml"),
+  make_option("--assembly", type = "character", help = "Reference assembly, e.g. GRCh37", default = NULL),
+  make_option("--txdb", type = "character", help = "TxDb package to annotate peaks with", default = NULL),
+  make_option("--orgdb", type = "character", help = "OrgDb package used for gene symbols", default = NULL)
 )
 
 
@@ -49,20 +60,10 @@ if (!dir.exists(opt$output)) {
 }
 
 if (!file.exists(opt$peakfile)) {
-  cat("Warning: The input Peak file does not exist. MACS2 may have been skipped or failed for this sample.\n")
-  
-
-  peak_anno_file <- file.path(opt$output, paste0(opt$name, "_peak_anno.csv"))
-  write.csv(data.frame(Message="Peak file not found"), peak_anno_file, row.names = FALSE)
-  
-  pdf_file <- file.path(opt$output, paste0(opt$name, "_pie_bp±2000.pdf"))
-  pdf(pdf_file, width = 7.5, height = 7.5)
-  plot.new()
-  text(0.5, 0.5, "Peak file not found")
-  dev.off()
-  
-  cat("Annotation skipped due to missing peak file. Empty outputs generated.\n")
-  quit(save = "no", status = 0)
+  stop(
+    "peak file not found: ", opt$peakfile,
+    " -- MACS2 did not produce a peak file for this sample; refusing to write a placeholder result"
+  )
 }
 
 if (!file.exists(opt$config)) {
@@ -73,42 +74,79 @@ if (!file.exists(opt$config)) {
 config <- yaml.load_file(opt$config)
 
 
-species <- "mm"  # default
+species <- "mm"
 if (!is.null(config$species)) {
   species <- config$species
 }
 
 cat("Detected species from config:", species, "\n")
 
-
-txdb_name <- NULL
-orgdb_name <- NULL
-
-if (species == "TAIR") {
-  txdb_name <- "TxDb.Athaliana.BioMart.plantsmart28"
-  orgdb_name <- "org.At.tair.db"
-} else if (species == "mm") {
-  txdb_name <- "TxDb.Mmusculus.UCSC.mm10.knownGene"
-  orgdb_name <- "org.Mm.eg.db"
-} else if (species == "homo") {
-  txdb_name <- "TxDb.Hsapiens.UCSC.hg38.knownGene"
-  orgdb_name <- "org.Hs.eg.db"
-} else {
-  stop("Unsupported species:", species)
+# The assembly, not the species, decides which TxDb is correct: annotating
+# hg38 peaks with an hg19 TxDb mislabels promoters without failing.
+assembly <- NULL
+if (!is.null(opt$assembly) && nzchar(opt$assembly)) {
+  assembly <- opt$assembly
+} else if (!is.null(config$annotation$assembly)) {
+  assembly <- config$annotation$assembly
 }
 
+ANNOTATION_PAIRS <- list(
+  GRCh37 = c("TxDb.Hsapiens.UCSC.hg19.knownGene", "org.Hs.eg.db"),
+  hg19 = c("TxDb.Hsapiens.UCSC.hg19.knownGene", "org.Hs.eg.db"),
+  GRCh38 = c("TxDb.Hsapiens.UCSC.hg38.knownGene", "org.Hs.eg.db"),
+  hg38 = c("TxDb.Hsapiens.UCSC.hg38.knownGene", "org.Hs.eg.db"),
+  GRCm38 = c("TxDb.Mmusculus.UCSC.mm10.knownGene", "org.Mm.eg.db"),
+  mm10 = c("TxDb.Mmusculus.UCSC.mm10.knownGene", "org.Mm.eg.db"),
+  TAIR = c("TxDb.Athaliana.Biomart.plantsmart28", "org.At.tair.db")
+)
+
+SPECIES_PAIRS <- list(
+  mm = c("TxDb.Mmusculus.UCSC.mm10.knownGene", "org.Mm.eg.db"),
+  homo = c("TxDb.Hsapiens.UCSC.hg38.knownGene", "org.Hs.eg.db"),
+  TAIR = c("TxDb.Athaliana.Biomart.plantsmart28", "org.At.tair.db")
+)
+
+pair <- NULL
+if (!is.null(assembly)) {
+  pair <- ANNOTATION_PAIRS[[assembly]]
+}
+if (is.null(pair)) {
+  pair <- SPECIES_PAIRS[[species]]
+}
+if (is.null(pair)) {
+  stop("Unsupported assembly/species: ", ifelse(is.null(assembly), species, assembly))
+}
+
+txdb_name <- pair[1]
+orgdb_name <- pair[2]
+if (!is.null(opt$txdb) && nzchar(opt$txdb)) {
+  txdb_name <- opt$txdb
+}
+if (!is.null(opt$orgdb) && nzchar(opt$orgdb)) {
+  orgdb_name <- opt$orgdb
+}
+
+cat("Using assembly:", ifelse(is.null(assembly), "(from species)", assembly), "\n")
 cat("Using TxDb:", txdb_name, "\n")
 cat("Using OrgDb:", orgdb_name, "\n")
 
 
-if (!require(txdb_name, character.only = TRUE)) {
-  BiocManager::install(txdb_name, ask = FALSE)
+if (!requireNamespace(txdb_name, quietly = TRUE)) {
+  stop(
+    "missing annotation package ", txdb_name,
+    "; it must be part of the pinned environment, not installed at run time"
+  )
+}
+if (!requireNamespace(orgdb_name, quietly = TRUE)) {
+  stop(
+    "missing annotation package ", orgdb_name,
+    "; it must be part of the pinned environment, not installed at run time"
+  )
+}
+suppressPackageStartupMessages({
   library(txdb_name, character.only = TRUE)
-}
-if (!require(orgdb_name, character.only = TRUE)) {
-  BiocManager::install(orgdb_name, ask = FALSE)
   library(orgdb_name, character.only = TRUE)
-}
+})
 
 txdb <- get(txdb_name)
 annoDb_name <- orgdb_name
@@ -119,39 +157,20 @@ options(ChIPseeker.ignore_1st_intron = TRUE)
 
 
 if (file.info(opt$peakfile)$size == 0) {
-  cat("Warning: The input Peak file is empty (size 0). MACS2 may not have found any peaks under the current cutoff.\n")
-  
-
-  peak_anno_file <- file.path(opt$output, paste0(opt$name, "_peak_anno.csv"))
-  write.csv(data.frame(Message="No peaks found"), peak_anno_file, row.names = FALSE)
-  
-  pdf_file <- file.path(opt$output, paste0(opt$name, "_pie_bp±2000.pdf"))
-  pdf(pdf_file, width = 7.5, height = 7.5)
-  plot.new()
-  text(0.5, 0.5, "No peaks found by MACS2")
-  dev.off()
-  
-  cat("Annotation skipped due to empty peak file. Empty outputs generated.\n")
-  quit(save = "no", status = 0)
+  stop(
+    "empty peak file: ", opt$peakfile,
+    " -- MACS2 found no region under the configured cutoff. Lower the cutoff or report the sample as failing, but do not emit an empty annotation"
+  )
 }
 
 
 peak <- tryCatch({
   readPeakFile(opt$peakfile)
 }, error = function(e) {
-  cat("Warning: readPeakFile failed. The peak file might be malformed or lack necessary columns.\n")
-  cat("Error message:", conditionMessage(e), "\n")
-  
-  peak_anno_file <- file.path(opt$output, paste0(opt$name, "_peak_anno.csv"))
-  write.csv(data.frame(Message="Peak file parsing failed"), peak_anno_file, row.names = FALSE)
-  
-  pdf_file <- file.path(opt$output, paste0(opt$name, "_pie_bp±2000.pdf"))
-  pdf(pdf_file, width = 7.5, height = 7.5)
-  plot.new()
-  text(0.5, 0.5, "Peak file parsing failed")
-  dev.off()
-  
-  quit(save = "no", status = 0)
+  stop(
+    "cannot read peak file ", opt$peakfile, ": ", conditionMessage(e),
+    " -- the file is malformed; fix the upstream step instead of writing a placeholder"
+  )
 })
 
 
@@ -192,7 +211,7 @@ if(sum(annotationCounts$Count) > 0) {
 }
 
 
-pdf_file <- file.path(opt$output, paste0(opt$name, "_pie_bp±2000.pdf"))
+pdf_file <- file.path(opt$output, paste0(opt$name, "_peak_pie.pdf"))
 pdf(pdf_file, width = 7.5, height = 7.5)
 
 if (nrow(annotationCounts) > 0 && sum(annotationCounts$Count) > 0) {

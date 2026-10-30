@@ -1,25 +1,100 @@
-# Global configuration for RNAseq and ChIPseq pipelines
-
-# 统一物种选择 (homo or mm)
-species: "mm"
-
-# 实验编号 (如果需要从公共数据库下载数据，配置对应目录如 config/GSE140552)
-experiment: "GSE140552"
-
-# 模块开关 (True 开启, False 关闭)
+species: mm
+annotation:
+  assembly: GRCm38
+  source: gencode
+experiment: GSE140552
+RNAseq:
+  dataset: GSE140552
 RNAseq_modules:
-  1_download: True
-  2_QC: True
-  3_RC: True
-  4_DEseq: True
-
+  1_prepare: true
+  2_QC: true
+  3_RC: true
+  4_DEseq: true
 ChIPseq_modules:
-  1_download: True
-  2_QC: True
-  3_CC: True
-  4_peak_result: True
-
+  1_prepare: true
+  2_QC: true
+  3_CC: true
+  4_peak_result: true
+  5_diffbind: true
 Integrated_modules:
-  1_Integrated_genes: True
-  2_Enhancer_genes: True
-
+  0_stats: true
+  1_enrichment: true
+  2_motif: true
+  3_enhancer: true
+  4_common: true
+chip:
+  dataset: GSE140552
+  peak_mode:
+    default: narrow
+    H3K27ac: broad
+    H3K4me1: broad
+  broad_cutoff: 0.1
+  keep_duplicates: false
+  mapq: 30
+  blacklist: auto
+  reference_condition: auto
+  genome_size: auto
+  macs_extra_args: []
+  diff:
+    methods:
+    - count
+    - presence
+    - stat
+    fdr: 0.05
+    lfc: 1.0
+    min_replicates: 2
+    label_permutations: 20
+    max_false_positive: 5
+    idr: false
+  coverage_norm: BPM
+integrated:
+  mode: auto
+  universe: expressed
+  promoter_window: 2000
+  enhancer_max_distance: 1000000
+  enhancer_distance_bins:
+  - 0
+  - 10000
+  - 50000
+  - 100000
+  - 500000
+  - 1000000
+  enhancer_random_per_region: 5
+  min_expression_baseMean: 10
+  enrichment_min_gene_set: 10
+  motif_background: both
+  motif_kmer: 2
+  motif_min_regions: 50
+  motif_max_tp_pct: 0.9
+  motif_network_max_motifs: 20
+  motif_fimo_max_regions: 4000
+  fimo_thresh: 0.0001
+  fimo_window: 200
+  network_min_hit_regions: 2
+  network_max_tfs: 12
+  network_max_genes: 24
+  motif_max_background: 8000
+  common:
+    rna_alpha: 0.05
+    heatmap_max_rows: 100
+    network_max_terms: 12
+    network_max_genes: 25
+    enrichment_bar_top_terms: 20
+stats:
+  permutations: 10000
+  bootstrap: 2000
+  seed: 20261023
+  alpha: 0.05
+qc:
+  fail_on_threshold: false
+  thresholds:
+    frip: 0.05
+    replicate_correlation: 0.85
+    min_mapped_reads: 10000000
+threads: 8
+runtime:
+  backend: conda
+  port: 8501
+  bind: 0.0.0.0
+ui:
+  locale: en

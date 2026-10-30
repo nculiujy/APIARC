@@ -1,0 +1,12 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base=4.3
+  - r-optparse
+  - bioconductor-clusterprofiler=4.10.0
+  - bioconductor-dose
+  - bioconductor-enrichplot
+  - bioconductor-org.mm.eg.db=3.18.0
+  - bioconductor-org.hs.eg.db=3.18.0

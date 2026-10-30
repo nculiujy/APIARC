@@ -1,0 +1,15 @@
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base=4.3
+  - r-yaml
+  - r-optparse
+  - r-ggplot2
+  - r-dplyr
+  - r-rcolorbrewer
+  - r-pheatmap
+  - r-ggrepel
+  - bioconductor-deseq2=1.42.0
+  - bioconductor-apeglm

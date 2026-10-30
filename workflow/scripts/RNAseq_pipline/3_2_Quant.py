@@ -23,7 +23,6 @@ def run_stringtie(hisat2_path, args, rel_dir, sample_id):
         print(f"[{sample_id}] Warning: dedup.bam not found at {dedup_bam}. Skipping.")
         return False
 
-    # outputdir/rel_dir/mRNA/stringtie/sample_id
     out_dir = os.path.join(args.outputdir, rel_dir, "mRNA/stringtie", sample_id)
     os.makedirs(out_dir, exist_ok=True)
     out_gtf = os.path.join(out_dir, "transcripts.gtf")

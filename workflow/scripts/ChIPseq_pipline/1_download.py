@@ -33,7 +33,6 @@ def download_sra(srr_id, download_dir):
             os.remove(lock_file)
             
         cmd_prefetch = f"prefetch {srr_id} --output-directory {download_dir} --max-size 100G"
-        # Try a few times to handle network timeout
         success = False
         for attempt in range(3):
             print(f"[Command] {cmd_prefetch} (Attempt {attempt+1})")
