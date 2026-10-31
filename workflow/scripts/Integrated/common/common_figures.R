@@ -231,6 +231,10 @@ line_panel <- function(frame, label) {
     gene_means <- vapply(timepoints, function(timepoint) {
       rowMeans(curve[, samples_of(timepoint), drop = FALSE], na.rm = TRUE)
     }, numeric(nrow(curve)))
+    # A group holding exactly one gene makes vapply return a plain vector, and
+    # apply() below then aborts with "dim(X) must have a positive length"; the
+    # explicit nrow restores the gene x time point shape for that case.
+    gene_means <- matrix(gene_means, nrow = nrow(curve))
     if (nrow(curve) > 1) {
       q25 <- apply(gene_means, 2, quantile, probs = 0.25, na.rm = TRUE)
       q75 <- apply(gene_means, 2, quantile, probs = 0.75, na.rm = TRUE)
