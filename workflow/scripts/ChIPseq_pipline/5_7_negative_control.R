@@ -76,16 +76,37 @@ ip_mat <- ip_mat[rowSums(ip_mat) > 0, , drop = FALSE]
 n_ref <- sum(meta$condition == opt$reference)
 n_treat <- sum(meta$condition == opt$treatment)
 labels <- c(rep(opt$reference, n_ref), rep(opt$treatment, n_treat))
-n_permutations <- min(opt$permutations, choose(length(labels), n_treat))
-perm_counts <- c()
-if (n_permutations >= 3 && nrow(ip_mat) > 0) {
-  for (i in seq_len(n_permutations)) {
-    shuffled <- sample(labels)
-    observed <- run_model(ip_mat, shuffled)
-    if (!is.null(observed)) perm_counts <- c(perm_counts, observed)
-  }
+
+# A draw that reproduces the observed grouping is not a null draw. With two
+# replicates per side there are only three distinct splits of four samples, so
+# counting the observation among the permutations reported the real result
+# (all 141 regions) as a false positive and failed a comparison that had none.
+# The key is the set of samples sharing the first sample's label, which makes
+# the split independent of which level is called treatment: the observed
+# grouping and its mirror collapse onto the same key.
+partition_key <- function(values) {
+  paste(which(values == values[1]), collapse = ",")
 }
-if (length(perm_counts) > 0) {
+observed_key <- partition_key(labels)
+
+perm_counts <- c()
+seen <- character(0)
+attempts <- 0L
+max_attempts <- max(opt$permutations, 1L) * 50L
+while (length(perm_counts) < opt$permutations && attempts < max_attempts && nrow(ip_mat) > 0) {
+  attempts <- attempts + 1L
+  shuffled <- sample(labels)
+  key <- partition_key(shuffled)
+  if (key == observed_key || key %in% seen) next
+  count <- run_model(ip_mat, shuffled)
+  if (is.null(count)) next
+  seen <- c(seen, key)
+  perm_counts <- c(perm_counts, count)
+}
+
+# Three draws is the smallest null worth reading: one value says nothing about
+# the tail, and the pass condition is a maximum.
+if (length(perm_counts) >= 3) {
   rows[[length(rows) + 1]] <- data.frame(
     control = "condition_label_permutation",
     n_replicates = length(perm_counts),
@@ -93,17 +114,31 @@ if (length(perm_counts) > 0) {
     max_false_positive = max(perm_counts),
     threshold = opt$max_false_positive,
     status = ifelse(max(perm_counts) <= opt$max_false_positive, "PASS", "FAIL"),
-    note = "empirical null for the number of significant regions"
+    note = paste(
+      "empirical null for the number of significant regions;",
+      "draws reproducing the observed grouping are excluded"
+    )
   )
 } else {
   rows[[length(rows) + 1]] <- data.frame(
     control = "condition_label_permutation",
-    n_replicates = 0L,
-    median_false_positive = NA_real_,
-    max_false_positive = NA_real_,
+    n_replicates = length(perm_counts),
+    median_false_positive = if (length(perm_counts)) median(perm_counts) else NA_real_,
+    max_false_positive = if (length(perm_counts)) max(perm_counts) else NA_real_,
     threshold = opt$max_false_positive,
     status = "SKIPPED",
-    note = "not enough replicates to permute labels (need >= 3 distinct permutations)"
+    note = sprintf(
+      paste(
+        "only %d distinct label split(s) remain after excluding the observed grouping",
+        "(need >= 3, so at least three replicates per group); %s"
+      ),
+      length(perm_counts),
+      if (length(perm_counts)) {
+        sprintf("the available draw(s) gave at most %d significant regions", max(perm_counts))
+      } else {
+        "no draw produced a model"
+      }
+    )
   )
 }
 
