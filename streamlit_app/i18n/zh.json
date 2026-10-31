@@ -701,6 +701,7 @@
   "stage.rna.4_DEseq": "差异表达",
   "state.done": "完成",
   "state.idle": "未开始",
+  "state.partial": "未完成",
   "state.running": "进行中",
   "track.error.empty_region": "区域不能为空，例如 chr1:40000-60000。",
   "track.error.format": "区域格式应为 chr1:40000-60000。",

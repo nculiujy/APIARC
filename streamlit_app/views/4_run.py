@@ -174,10 +174,12 @@ def omics_tab(scope: str, key: str) -> None:
     job = runtime.job_status(scope)
     stopped = st.session_state.pop(f"stopped-{key}", "")
     if stopped:
+        # A stopped job leaves its stage unfinished, not running, so both labels
+        # name the stage snakemake resumes from.
         paused = [
             label
             for label, _detail, status, _kind in pipeline.stage_status(scope, config)
-            if status == i18n.t("state.running")
+            if status in (i18n.t("state.running"), i18n.t("state.partial"))
         ]
         tail = i18n.t("run.stopped.paused", stage=paused[0]) if paused else ""
         st.info(i18n.t("run.stopped.note", label=stopped, tail=tail))

@@ -1013,6 +1013,100 @@ class RunScopeTest(unittest.TestCase):
         _done, total = self.pipeline.progress("ChIPseq", self.config, only=stages)
         self.assertEqual(total, len(stages))
 
+    def test_all_stages_names_every_enabled_marker(self):
+        # The deepest marker used to be the only target. A stage flag is no
+        # input of the next stage's first rule, so stage 4 never wrote its own
+        # and the page reported it as running after the run had ended.
+        config = dict(self.config, integrated={"mode": "differential"})
+        stages = self.pipeline.active_stages("ChIPseq", config)
+        targets = [
+            item
+            for item in self.pipeline.scope_command("ChIPseq", config, 4)
+            if item.endswith("finished.txt")
+        ]
+        self.assertEqual(len(targets), len(stages))
+        for name in stages:
+            folder = self.pipeline.datasets.STAGE_DIRS["ChIPseq"][name]
+            self.assertTrue(
+                any(target.endswith(f"{folder}/finished.txt") for target in targets),
+                name,
+            )
+
+
+class StageStateTest(unittest.TestCase):
+    """Outputs without a marker are unfinished, and only a live job runs."""
+
+    def setUp(self):
+        app_root = os.path.join(os.path.dirname(__file__), "..", "streamlit_app")
+        if app_root not in sys.path:
+            sys.path.insert(0, app_root)
+        from utils import i18n, pipeline
+
+        self.pipeline = pipeline
+        self.i18n = i18n
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.marker = Path(self.tmp.name) / "4_peaks" / "finished.txt"
+        (Path(self.tmp.name) / "4_peaks" / "peakcalling").mkdir(parents=True)
+
+    def test_outputs_without_a_marker_are_unfinished(self):
+        self.assertEqual(
+            self.pipeline._marker_state(self.marker, False),
+            (self.i18n.t("state.partial"), "warn"),
+        )
+
+    def test_only_a_live_job_reads_as_running(self):
+        self.assertEqual(
+            self.pipeline._marker_state(self.marker, True),
+            (self.i18n.t("state.running"), "run"),
+        )
+
+    def test_marker_wins_over_the_job_state(self):
+        self.marker.write_text("input\n")
+        self.assertEqual(
+            self.pipeline._marker_state(self.marker, True),
+            (self.i18n.t("state.done"), "ok"),
+        )
+
+
+class AnnotationGapTest(unittest.TestCase):
+    """A leftover run under another annotation is not a version mismatch."""
+
+    def setUp(self):
+        app_root = os.path.join(os.path.dirname(__file__), "..", "streamlit_app")
+        if app_root not in sys.path:
+            sys.path.insert(0, app_root)
+        from utils import datasets
+
+        self.datasets = datasets
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def _result(self, omics: str, name: str, *versions: str) -> None:
+        for version in versions:
+            (self.root / omics / name / version).mkdir(parents=True)
+
+    def test_a_leftover_version_on_one_side_is_quiet(self):
+        # The RNA side had been run once under the human annotation before the
+        # switch; comparing both version lists flagged that as a mismatch even
+        # though both sides had finished under the configured one.
+        self._result("RNAseq", "rna", "GRCh38-gencode", "GRCm38-gencode")
+        self._result("ChIPseq", "chip", "GRCm38-gencode")
+        with mock.patch.object(self.datasets, "RESULT_ROOT", self.root):
+            self.assertIsNone(
+                self.datasets.annotation_gap("rna", "chip", "GRCm38-gencode")
+            )
+
+    def test_a_side_without_the_configured_version_is_reported(self):
+        self._result("RNAseq", "rna", "GRCh38-gencode")
+        self._result("ChIPseq", "chip", "GRCm38-gencode")
+        with mock.patch.object(self.datasets, "RESULT_ROOT", self.root):
+            self.assertEqual(
+                self.datasets.annotation_gap("rna", "chip", "GRCm38-gencode"),
+                (["GRCh38-gencode"], ["GRCm38-gencode"]),
+            )
+
 
 class LogCleanupTest(unittest.TestCase):
     """清理所有日志 deletes what the drawers list, and nothing else."""

@@ -88,14 +88,17 @@ if mode == "differential":
     )
 stage_rows(prereq, numbered=False)
 
-rna_versions = datasets.result_versions("RNAseq", rna_name)
-chip_versions = datasets.result_versions("ChIPseq", chip_name)
-if set(rna_versions) != set(chip_versions):
+# Only the configured annotation decides this: a leftover run under another
+# one is a switched reference, and both sides having the configured version is
+# all the joint stages need. Comparing the two version lists called every such
+# leftover a mismatch, even when both sides had finished under the current one.
+gap = datasets.annotation_gap(rna_name, chip_name, anno["id"])
+if gap:
     st.warning(
         i18n.t(
             "joint.warning.versions",
-            rna=", ".join(rna_versions) or i18n.t("common.none"),
-            chip=", ".join(chip_versions) or i18n.t("common.none"),
+            rna=", ".join(gap[0]) or i18n.t("common.none"),
+            chip=", ".join(gap[1]) or i18n.t("common.none"),
             id=anno["id"],
         )
     )
@@ -199,10 +202,12 @@ with st.expander(i18n.t("joint.section.modules")):
 section_title(i18n.t("joint.section.launch"))
 stopped = st.session_state.pop("joint-stopped", "")
 if stopped:
+    # A stopped job leaves its stage unfinished, not running, so both labels
+    # name the stage snakemake resumes from.
     paused = [
         label
         for label, _detail, status, _kind in pipeline.stage_status("Integrated", config)
-        if status == i18n.t("state.running")
+        if status in (i18n.t("state.running"), i18n.t("state.partial"))
     ]
     tail = i18n.t("run.stopped.paused", stage=paused[0]) if paused else ""
     st.info(i18n.t("run.stopped.note", label=stopped, tail=tail))

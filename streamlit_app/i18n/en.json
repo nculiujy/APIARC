@@ -701,6 +701,7 @@
   "stage.rna.4_DEseq": "Differential expression",
   "state.done": "Done",
   "state.idle": "Not started",
+  "state.partial": "Incomplete",
   "state.running": "Running",
   "track.error.empty_region": "The region is empty; use chr1:40000-60000.",
   "track.error.format": "The region format is chr1:40000-60000.",

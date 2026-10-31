@@ -32,6 +32,14 @@ STAGE_KEY = {
 # copy here silently dropped 4_common from all three.
 JOINT_STAGES = tuple(datasets.INTEGRATED_STAGES)
 
+# jobs.json files the joint run under "joint" while the views name the scope
+# "Integrated"; without the mapping those stages never see a live job.
+JOB_SCOPE = {"Integrated": "joint"}
+
+
+def job_scope(scope: str) -> str:
+    return JOB_SCOPE.get(scope, scope)
+
 
 def snakemake_bin() -> str:
     found = env_paths.resolved_tool("snakemake")
@@ -74,12 +82,17 @@ def joint_targets(config: dict) -> dict[str, str]:
     return {key: str(datasets.joint_marker(config, key)) for key in JOINT_STAGES}
 
 
-def target_for(scope: str, stage: str, config: dict) -> str:
+def stage_targets(scope: str, config: dict) -> dict[str, str]:
+    """Finished marker of every stage the scope knows, keyed by stage."""
     if scope == "RNAseq":
-        return rna_targets(config)[stage]
+        return rna_targets(config)
     if scope == "ChIPseq":
-        return chip_targets(config)[stage]
-    return joint_targets(config)[stage]
+        return chip_targets(config)
+    return joint_targets(config)
+
+
+def target_for(scope: str, stage: str, config: dict) -> str:
+    return stage_targets(scope, config)[stage]
 
 
 def stage_command(
@@ -138,17 +151,16 @@ def scope_command(
     stages = active_stages(scope, config)
     if not stages:
         raise ValueError(i18n.t("pipe.no_active_stage", scope=scope))
-    if scope == "Integrated":
-        # The joint stages are siblings - enrichment, motif and enhancer each
-        # read what 0_stats wrote, none of them feeds another - so the target
-        # has to name every enabled marker. Asking only for the last one built
-        # a three-rule DAG and silently skipped the statistics, enrichment and
-        # motif outputs the results page reads.
-        targets = [env_paths.relative(joint_targets(config)[name]) for name in stages]
-    elif scope == "RNAseq":
-        targets = [env_paths.relative(rna_targets(config)[stages[-1]])]
-    else:
-        targets = [env_paths.relative(chip_targets(config)[stages[-1]])]
+    # Every enabled marker is a target, not only the deepest one. A stage's
+    # finished flag is no input of the next stage's first rule - 5_diffbind
+    # reads the peak BEDs directly - so a run to 5_diffbind never executed the
+    # annotation, coverage and QC rules of stage 4 and never wrote its marker,
+    # which the pages then reported as a stage still running. The same holds
+    # for the joint stages: enrichment, motif and enhancer each read what
+    # 0_stats wrote, none of them feeds another, so naming only the last one
+    # built a three-rule DAG and skipped the outputs the results page reads.
+    markers = stage_targets(scope, config)
+    targets = [env_paths.relative(markers[name]) for name in stages]
     # The rules spell their outputs relative to the repo root; snakemake 7
     # refuses an absolute target against them and aborts with
     # MissingRuleException before the DAG is built.
@@ -182,24 +194,40 @@ def stage_markers(
 
 
 def stage_status(
-    scope: str, config: dict, markers: dict[str, Path] | None = None
+    scope: str,
+    config: dict,
+    markers: dict[str, Path] | None = None,
+    running: bool | None = None,
 ) -> list[tuple[str, str, str, str]]:
     """One row per stage: label, folder detail, status, status kind.
 
     ``markers`` overrides where the finished markers live, so a page can show a
     dataset or annotation other than the configured one without touching config.
+    ``running`` overrides whether the scope's job is alive; by default it comes
+    from the job record, but only for the configured dataset - a page showing an
+    older one must not inherit a live run on a different result directory.
     """
+    if running is None:
+        running = markers is None and runtime.is_running(job_scope(scope))
     return [
-        (i18n.t(STAGE_KEY[scope][key]), detail, *_marker_state(marker))
+        (i18n.t(STAGE_KEY[scope][key]), detail, *_marker_state(marker, running))
         for key, detail, marker in stage_markers(scope, config, markers)
     ]
 
 
-def _marker_state(marker: Path) -> tuple[str, str]:
+def _marker_state(marker: Path, running: bool = False) -> tuple[str, str]:
+    """Status of one stage, decided by its marker and by the job record.
+
+    Outputs without a marker mean the stage was interrupted or never asked for,
+    so only a live process makes it "running"; reading that off the folder left
+    every finished run reporting "running" on the stage it skipped.
+    """
     if marker.is_file():
         return i18n.t("state.done"), "ok"
     if marker.parent.is_dir() and any(marker.parent.iterdir()):
-        return i18n.t("state.running"), "run"
+        if running:
+            return i18n.t("state.running"), "run"
+        return i18n.t("state.partial"), "warn"
     return i18n.t("state.idle"), "idle"
 
 

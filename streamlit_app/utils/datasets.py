@@ -77,6 +77,22 @@ def result_versions(omics: str, name: str) -> list[str]:
     )
 
 
+def annotation_gap(
+    rna_name: str, chip_name: str, version: str
+) -> tuple[list[str], list[str]] | None:
+    """Both sides' versions when only one of them holds ``version``.
+
+    A run left behind under another annotation is not a mismatch: the joint
+    stages read one annotation on both sides, so their version lists may differ
+    freely as long as the configured one is present twice.
+    """
+    rna = result_versions("RNAseq", rna_name)
+    chip = result_versions("ChIPseq", chip_name)
+    if (version in rna) == (version in chip):
+        return None
+    return rna, chip
+
+
 def result_inventory(omics: str) -> list[tuple[str, str]]:
     """Every ``(dataset, annotation)`` directory that exists under one omics."""
     base = RESULT_ROOT / omics
